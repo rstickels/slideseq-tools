@@ -55,7 +55,7 @@ def get_tiles(x, lane):
 def str2bool(s):
     return s.lower() == "true"
 
-    
+
 # Write to log file
 def write_log(log_file, flowcell_barcode, log_string):
     now = datetime.now()
@@ -63,13 +63,13 @@ def write_log(log_file, flowcell_barcode, log_string):
     with open(log_file, "a") as logfile:
         logfile.write('{} [Slide-seq Flowcell Alignment Workflow - {}]: {}\n'.format(dt_string, flowcell_barcode, log_string))
     logfile.close()
-    
+
 
 def main():
     if len(sys.argv) != 2:
         print("Please provide one argument: manifest file!")
         sys.exit()
-    
+
     manifest_file = sys.argv[1]
 
     # Check if the manifest file exists
@@ -84,7 +84,7 @@ def main():
             dict = line.rstrip().split("=")
             options[dict[0]] = dict[1]
     fp.close()
-    
+
     flowcell_directory = options['flowcell_directory']
     dropseq_folder = options['dropseq_folder']
     picard_folder = options['picard_folder']
@@ -94,12 +94,12 @@ def main():
     metadata_file = options['metadata_file']
     option_file = options['option_file']
     flowcell_barcode = options['flowcell_barcode']
-    
+
     library_folder = options['library_folder'] if 'library_folder' in options else '{}/libraries'.format(output_folder)
     tmpdir = options['temp_folder'] if 'temp_folder' in options else '{}/tmp'.format(output_folder)
     illumina_platform = options['illumina_platform'] if 'illumina_platform' in options else 'NextSeq'
     email_address = options['email_address'] if 'email_address' in options else ''
-    
+
     is_NovaSeq = True if illumina_platform == 'NovaSeq' else False
     is_NovaSeq_S4 = True if illumina_platform == 'NovaSeq_S4' else False
     num_slice_NovaSeq = 10
@@ -107,7 +107,7 @@ def main():
 
     runinfo_file = '{}/RunInfo.xml'.format(flowcell_directory)
     log_file = '{}/logs/workflow.log'.format(output_folder)
-    
+
     # Read info from metadata file
     lanes = []
     lanes_unique = []
@@ -160,14 +160,14 @@ def main():
                 slice_id[lane].append(str(i))
                 slice_first_tile[lane].append(str(tile_nums[tile_cou_per_slice * i]))
                 slice_tile_limit[lane].append(str(tile_cou_per_slice))
-    
+
     folder_waiting = '{}/status/waiting.mergebarcodes'.format(output_folder)
     folder_running = '{}/status/running.mergebarcodes'.format(output_folder)
     folder_finished = '{}/status/finished.mergebarcodes'.format(output_folder)
     folder_failed = '{}/status/failed.mergebarcodes'.format(output_folder)
-    
+
     call(['mkdir', folder_waiting])
-    
+
     # Wait till all of run_processbarcodes and run_barcodes2sam finish
     while 1:
         all_failed_1 = True
@@ -187,7 +187,7 @@ def main():
         if all_failed_2:
             write_log(log_file, flowcell_barcode, "All run_barcodes2sam failed. Exiting...")
             sys.exit()
-        
+
         f = True
         for lane in lanes_unique:
             for i in range(len(slice_id[lane])):
@@ -201,13 +201,13 @@ def main():
         if f:
             break
         time.sleep(30)
-    
+
     if os.path.isdir(folder_waiting):
         call(['mv', folder_waiting, folder_running])
     else:
         call(['mkdir', folder_running])
 
-    try:       
+    try:
         for j in range(len(libraries_unique)):
             library = libraries_unique[j]
             os.system('mkdir ' + '{}/{}_{}'.format(library_folder, experiment_date[j], library))
@@ -230,20 +230,20 @@ def main():
                     # Call run_alignment
                     output_file = '{}/logs/run_alignment_{}_{}_{}_{}.log'.format(output_folder, library, lanes[i], slice, barcodes[i])
                     submission_script = '{}/run.sh'.format(scripts_folder)
-                    call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=35g', '-notify', '-l', 'h_rt=10:0:0', '-j', 'y', submission_script, 'run_alignment', manifest_file, library, lanes[i], slice, barcodes[i], scripts_folder]
+                    call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=105g', '-notify', '-l', 'h_rt=100:0:0', '-j', 'y', submission_script, 'run_alignment', manifest_file, library, lanes[i], slice, barcodes[i], scripts_folder]
                     call(call_args)
 
             if is_NovaSeq or is_NovaSeq_S4:
                 time.sleep(1800)
             else:
                 time.sleep(600)
-        
+
             # Call run_analysis
             output_file = '{}/logs/run_analysis_{}.log'.format(output_folder, library)
             submission_script = '{}/run.sh'.format(scripts_folder)
-            call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=30g', '-notify', '-l', 'h_rt=30:0:0', '-j', 'y', submission_script, 'run_analysis', manifest_file, library, scripts_folder]
+            call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=90g', '-notify', '-l', 'h_rt=90:0:0', '-j', 'y', submission_script, 'run_analysis', manifest_file, library, scripts_folder]
             call(call_args)
-        
+
         call(['mv', folder_running, folder_finished])
     except:
         if os.path.isdir(folder_running):
@@ -252,7 +252,7 @@ def main():
             call(['mv', folder_waiting, folder_failed])
         else:
             call(['mkdir', folder_failed])
-            
+
         if len(email_address) > 1:
             subject = "Slide-seq workflow failed for " + flowcell_barcode
             content = "The Slide-seq workflow failed at the step of merging barcode matrics. Please check the log file for the issues. "
@@ -260,8 +260,7 @@ def main():
             call(call_args)
 
         sys.exit()
-        
-    
+
+
 if __name__ == "__main__":
     main()
-

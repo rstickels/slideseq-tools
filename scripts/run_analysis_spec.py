@@ -32,13 +32,13 @@ def get_tiles(x, lane):
     fin.close()
     tiles.sort()
     return tiles
-    
+
 
 # Convert string to boolean
 def str2bool(s):
     return s.lower() == "true"
-	
-	
+
+
 # Write to log file
 def write_log(log_file, flowcell_barcode, log_string):
     now = datetime.now()
@@ -46,13 +46,13 @@ def write_log(log_file, flowcell_barcode, log_string):
     with open(log_file, "a") as logfile:
         logfile.write('{} [Slide-seq Flowcell Alignment Workflow - {}]: {}\n'.format(dt_string, flowcell_barcode, log_string))
     logfile.close()
-    
+
 
 def main():
     if len(sys.argv) != 4:
         print("Please provide three arguments: manifest file, library ID and locus function list!")
         sys.exit()
-    
+
     manifest_file = sys.argv[1]
     library = sys.argv[2]
     locus_function_list = sys.argv[3]
@@ -69,7 +69,7 @@ def main():
             dict = line.rstrip().split("=")
             options[dict[0]] = dict[1]
     fp.close()
-    
+
     flowcell_directory = options['flowcell_directory']
     dropseq_folder = options['dropseq_folder']
     picard_folder = options['picard_folder']
@@ -79,22 +79,22 @@ def main():
     metadata_file = options['metadata_file']
     option_file = options['option_file']
     flowcell_barcode = options['flowcell_barcode']
-    
+
     library_folder = options['library_folder'] if 'library_folder' in options else '{}/libraries'.format(output_folder)
     tmpdir = options['temp_folder'] if 'temp_folder' in options else '{}/tmp'.format(output_folder)
     illumina_platform = options['illumina_platform'] if 'illumina_platform' in options else 'NextSeq'
     email_address = options['email_address'] if 'email_address' in options else ''
-    
+
     is_NovaSeq = True if illumina_platform == 'NovaSeq' else False
     is_NovaSeq_S4 = True if illumina_platform == 'NovaSeq_S4' else False
     num_slice_NovaSeq = 10
     num_slice_NovaSeq_S4 = 40
-    
+
     basecalls_dir = '{}/Data/Intensities/BaseCalls'.format(flowcell_directory)
-    
+
     runinfo_file = '{}/RunInfo.xml'.format(flowcell_directory)
     log_file = '{}/logs/workflow.log'.format(output_folder)
-    
+
     # Read info from metadata file
     lanes = []
     lanes_unique = []
@@ -133,7 +133,7 @@ def main():
                 bead_barcode_file = row[row0.index('bead_barcode_file')]
                 experiment_date = row[row0.index('experiment_date')]
     fin.close()
-    
+
     # Get tile information from RunInfo.xml
     slice_id = {}
     slice_first_tile = {}
@@ -157,7 +157,7 @@ def main():
                 slice_id[lane].append(str(i))
                 slice_first_tile[lane].append(str(tile_nums[tile_cou_per_slice * i]))
                 slice_tile_limit[lane].append(str(tile_cou_per_slice))
-	
+
     reference_folder = reference[:reference.rfind('/')]
     referencePure = reference[reference.rfind('/') + 1:]
     if (referencePure.endswith('.gz')):
@@ -169,22 +169,22 @@ def main():
     ref_flat = '{}/{}.refFlat'.format(reference_folder, referencePure)
     ribosomal_intervals = '{}/{}.rRNA.intervals'.format(reference_folder, referencePure)
     reference2 = referencePure + '.' + locus_function_list
-    
+
     folder_running = '{}/status/running.analysis_spec_{}_{}'.format(output_folder, library, locus_function_list)
     folder_finished = '{}/status/finished.analysis_spec_{}_{}'.format(output_folder, library, locus_function_list)
     folder_failed = '{}/status/failed.analysis_spec_{}_{}'.format(output_folder, library, locus_function_list)
-    
+
     alignment_folder = '{}/{}_{}/{}/alignment/'.format(library_folder, experiment_date, library, reference2)
     combined_bamfile = '{}/{}_{}/{}.bam'.format(library_folder, experiment_date, library, library)
     barcode_matching_folder = '{}/{}_{}/{}/barcode_matching/'.format(library_folder, experiment_date, library, reference2)
-    
+
     call(['mkdir', folder_running])
 
     try:
         now = datetime.now()
         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
         print(dt_string)
-    
+
         # Select cells by num transcripts
         commandStr = '{}/SelectCellsByNumTranscripts '.format(dropseq_folder)
         if is_NovaSeq or is_NovaSeq_S4:
@@ -203,7 +203,7 @@ def main():
 
         # Call run_cmatcher
         if run_barcodematching:
-            if os.path.isfile(bead_barcode_file):               
+            if os.path.isfile(bead_barcode_file):
                 name = '{}.{}_transcripts_mq_{}_selected_cells'.format(library, min_transcripts_per_cell, base_quality)
                 select_cell_file = '{}{}.txt'.format(alignment_folder, name)
                 select_cell_gzfile = '{}.gz'.format(select_cell_file)
@@ -220,30 +220,30 @@ def main():
                 for i in range(ls + 1):
                     if i * k >= l:
                         break;
-                    
+
                     infile2 = '{}/{}_{}.txt'.format(alignment_folder, name, str(i + 1))
                     commandStr = 'awk \'NR >= {} && NR <= {}\' {} > {}'.format(str(i * k + 1), str((i+1) * k), select_cell_file, infile2)
                     os.system(commandStr)
-                    
+
                     file4 = '{}/{}_barcode_matching_distance_{}.txt'.format(barcode_matching_folder, library, str(i + 1))
                     file5 = '{}/{}_barcode_matching_{}.txt'.format(barcode_matching_folder, library, str(i + 1))
                     output_file = '{}/logs/run_cmatcher_{}_{}_{}.log'.format(output_folder, library, locus_function_list, str(i + 1))
                     submission_script = '{}/run.sh'.format(scripts_folder)
-                    call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=10g', '-notify', '-l', 'h_rt=5:0:0', '-j', 'y', submission_script, 'cmatcher', scripts_folder, bead_barcode_file, infile2, file4, file5, bead_type, '1']
+                    call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=30g', '-notify', '-l', 'h_rt=50:0:0', '-j', 'y', submission_script, 'cmatcher', scripts_folder, bead_barcode_file, infile2, file4, file5, bead_type, '1']
                     call(call_args)
                     write_log(log_file, flowcell_barcode, "Run CMatcher for "+library+" "+reference2+" "+str(i + 1))
 
                 # Call run_cmatcher_combine
                 output_file = '{}/logs/run_cmatcher_combine_{}_{}.log'.format(output_folder, library, locus_function_list)
                 submission_script = '{}/run.sh'.format(scripts_folder)
-                call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=20g', '-notify', '-l', 'h_rt=12:0:0', '-j', 'y', submission_script, 'run_cmatcher_combine', manifest_file, library, scripts_folder, locus_function_list]
+                call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=60g', '-notify', '-l', 'h_rt=120:0:0', '-j', 'y', submission_script, 'run_cmatcher_combine', manifest_file, library, scripts_folder, locus_function_list]
                 call(call_args)
             else:
                 run_barcodematching = False
                 if os.path.isdir(barcode_matching_folder):
                     call(['rm', '-r', barcode_matching_folder])
                 print("File {} does not exist. Do not run barcode matching...".format(bead_barcode_file))
-        
+
         # Generate digital expression files for all Illumina barcodes
         commandStr = '{}/DigitalExpression '.format(dropseq_folder)
         if is_NovaSeq or is_NovaSeq_S4:
@@ -261,7 +261,7 @@ def main():
         write_log(log_file, flowcell_barcode, "DigitalExpression for "+library+" for all Illumina barcodes Command="+commandStr)
         os.system(commandStr)
         write_log(log_file, flowcell_barcode, "DigitalExpression for "+library+" for all Illumina barcodes is done. ")
-        
+
         if not run_barcodematching:
             if os.path.isdir(barcode_matching_folder):
                 call(['rm', '-r', barcode_matching_folder])
@@ -270,11 +270,11 @@ def main():
                 content = "The Slide-seq workflow for "+library+"_"+locus_function_list+" is finished. Please check the output folder for the results. Thank you for using the Slide-seq tools! "
                 call_args = ['python', '{}/send_email.py'.format(scripts_folder), email_address, subject, content]
                 call(call_args)
-        
+
         now = datetime.now()
         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
         print(dt_string)
-        
+
         call(['mv', folder_running, folder_finished])
     except:
         if os.path.isdir(folder_running):
@@ -283,7 +283,7 @@ def main():
             call(['mv', folder_waiting, folder_failed])
         else:
             call(['mkdir', folder_failed])
-            
+
         if len(email_address) > 1:
             subject = "Slide-seq workflow failed for " + flowcell_barcode
             content = "The Slide-seq workflow for "+library+" "+locus_function_list+" failed at the step of running specific analysis. Please check the log file for the issues. "
@@ -291,8 +291,7 @@ def main():
             call(call_args)
 
         sys.exit()
-    
+
 
 if __name__ == "__main__":
     main()
-

@@ -78,7 +78,7 @@ def get_tiles(x, lane):
 def str2bool(s):
     return s.lower() == "true"
 
-    
+
 # Write to log file
 def write_log(log_file, flowcell_barcode, log_string):
     now = datetime.now()
@@ -92,11 +92,11 @@ def main():
     if len(sys.argv) != 4:
         print("Please provide three arguments: manifest file, library ID and locus function list!")
         sys.exit()
-    
+
     manifest_file = sys.argv[1]
     library = sys.argv[2]
     locus_function_list = sys.argv[3]
-    
+
     # Check if the manifest file exists
     if not os.path.isfile(manifest_file):
         print("File {} does not exist. Exiting...".format(manifest_file))
@@ -109,7 +109,7 @@ def main():
             dict = line.rstrip().split("=")
             options[dict[0]] = dict[1]
     fp.close()
-    
+
     flowcell_directory = options['flowcell_directory']
     dropseq_folder = options['dropseq_folder']
     picard_folder = options['picard_folder']
@@ -119,17 +119,17 @@ def main():
     metadata_file = options['metadata_file']
     option_file = options['option_file']
     flowcell_barcode = options['flowcell_barcode']
-    
+
     library_folder = options['library_folder'] if 'library_folder' in options else '{}/libraries'.format(output_folder)
     tmpdir = options['temp_folder'] if 'temp_folder' in options else '{}/tmp'.format(output_folder)
     illumina_platform = options['illumina_platform'] if 'illumina_platform' in options else 'NextSeq'
     email_address = options['email_address'] if 'email_address' in options else ''
-    
+
     is_NovaSeq = True if illumina_platform == 'NovaSeq' else False
     is_NovaSeq_S4 = True if illumina_platform == 'NovaSeq_S4' else False
     num_slice_NovaSeq = 10
     num_slice_NovaSeq_S4 = 40
-    
+
     # Read info from metadata file
     lanes = []
     lanes_unique = []
@@ -158,7 +158,7 @@ def main():
                 libraries_unique.append(row[row0.index('library')])
             barcodes.append(row[row0.index('sample_barcode')])
             bead_structures.append(row[row0.index('bead_structure')])
-            if row[row0.index('library')] == library:                
+            if row[row0.index('library')] == library:
                 reference = row[row0.index('reference')]
                 base_quality = row[row0.index('base_quality')]
                 min_transcripts_per_cell = row[row0.index('min_transcripts_per_cell')]
@@ -166,7 +166,7 @@ def main():
                 run_puckmatcher = str2bool(row[row0.index('run_barcodematching')])
                 experiment_date = row[row0.index('experiment_date')]
     fin.close()
-    
+
     reference_folder = reference[:reference.rfind('/')]
     referencePure = reference[reference.rfind('/') + 1:]
     if (referencePure.endswith('.gz')):
@@ -205,23 +205,23 @@ def main():
                 slice_id[lane].append(str(i))
                 slice_first_tile[lane].append(str(tile_nums[tile_cou_per_slice * i]))
                 slice_tile_limit[lane].append(str(tile_cou_per_slice))
-    
+
     alignment_folder = '{}/{}_{}/{}/alignment/'.format(library_folder, experiment_date, library, reference2)
     barcode_matching_folder = '{}/{}_{}/{}/barcode_matching/'.format(library_folder, experiment_date, library, reference2)
     select_cell_file = '{}{}.{}_transcripts_mq_{}_selected_cells.txt'.format(alignment_folder, library, min_transcripts_per_cell, base_quality)
     bead_barcode_file = '{}/BeadBarcodes.txt'.format(barcode_matching_folder)
-    
+
     if not os.path.isfile(select_cell_file):
         write_log(log_file, flowcell_barcode, 'run_cmatcher_combine error: '+select_cell_file+' does not exist!')
         raise Exception('run_cmatcher_combine error: '+select_cell_file+' does not exist!')
-        
+
     folder_running = '{}/status/running.cmatcher_combine_{}_{}'.format(output_folder, library, reference2)
     folder_finished = '{}/status/finished.cmatcher_combine_{}_{}'.format(output_folder, library, reference2)
     folder_failed = '{}/status/failed.cmatcher_combine_{}_{}'.format(output_folder, library, reference2)
-    
-    try:        
+
+    try:
         call(['mkdir', folder_running])
-        
+
         l = 0
         with open(select_cell_file, 'r') as fin:
             for line in fin:
@@ -229,9 +229,9 @@ def main():
         fin.close()
         k = 50000
         ls = l // k
-        
+
         print('# selected cells: ' + str(l))
-        
+
         while 1:
             f = True
             for i in range(ls + 1):
@@ -262,7 +262,7 @@ def main():
                             fout.write(line)
                 fin.close()
         fout.close()
-        
+
         for i in range(ls + 1):
             if i * k >= l:
                 break;
@@ -292,9 +292,9 @@ def main():
                             fout.write(line)
                 fin.close()
         fout.close()
-        
+
         write_log(log_file, flowcell_barcode, "Combine CMatcher outputs for "+library+" "+reference2+" is done. ")
-        
+
         # Get unique matched bead barcodes and locations
         print('Get unique matched bead barcodes and locations...')
         write_log(log_file, flowcell_barcode, "Get unique matched bead barcodes and locations for "+library+" "+reference2)
@@ -319,7 +319,7 @@ def main():
                 fin.close()
             fout2.close()
         fout1.close()
-        
+
         print('Gzip unique matched bead barcode file...')
         matched_bead_barcode_gzfile = '{}/{}_matched_bead_barcodes.txt.gz'.format(barcode_matching_folder, library)
         os.system('gzip -c {} > {}'.format(matched_bead_barcode_file, matched_bead_barcode_gzfile))
@@ -332,28 +332,28 @@ def main():
                 # Call tag_matched_bam
                 output_file = '{}/logs/tag_matched_bam_{}_{}_{}_{}_{}.log'.format(output_folder, library, lanes[i], slice, barcodes[i], reference2)
                 submission_script = '{}/run.sh'.format(scripts_folder)
-                call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=20g', '-notify', '-l', 'h_rt=5:0:0', '-j', 'y', submission_script, 'tag_matched_bam', manifest_file, library, lanes[i], slice, barcodes[i], locus_function_list, scripts_folder]
+                call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=60g', '-notify', '-l', 'h_rt=50:0:0', '-j', 'y', submission_script, 'tag_matched_bam', manifest_file, library, lanes[i], slice, barcodes[i], locus_function_list, scripts_folder]
                 call(call_args)
-                
+
                 # Call filter_unmapped_bam
                 output_file = '{}/logs/filter_unmapped_bam_{}_{}_{}_{}_{}.log'.format(output_folder, library, lanes[i], slice, barcodes[i], reference2)
                 submission_script = '{}/run.sh'.format(scripts_folder)
-                call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=20g', '-notify', '-l', 'h_rt=5:0:0', '-j', 'y', submission_script, 'filter_unmapped_bam', manifest_file, library, lanes[i], slice, barcodes[i], locus_function_list, scripts_folder]
+                call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=60g', '-notify', '-l', 'h_rt=50:0:0', '-j', 'y', submission_script, 'filter_unmapped_bam', manifest_file, library, lanes[i], slice, barcodes[i], locus_function_list, scripts_folder]
                 call(call_args)
-                
+
         # Call generate_plots_cmatcher
         output_file = '{}/logs/generate_plots_cmatcher_{}_{}.log'.format(output_folder, library, reference2)
         submission_script = '{}/run.sh'.format(scripts_folder)
-        call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=30g', '-notify', '-l', 'h_rt=20:0:0', '-j', 'y', submission_script, 'generate_plots_cmatcher', manifest_file, library, scripts_folder, locus_function_list]
+        call_args = ['qsub', '-o', output_file, '-l', 'h_vmem=90g', '-notify', '-l', 'h_rt=60:0:0', '-j', 'y', submission_script, 'generate_plots_cmatcher', manifest_file, library, scripts_folder, locus_function_list]
         call(call_args)
-        
+
         call(['mv', folder_running, folder_finished])
     except:
         if os.path.isdir(folder_running):
             call(['mv', folder_running, folder_failed])
         else:
             call(['mkdir', folder_failed])
-        
+
         if len(email_address) > 1:
             subject = "Slide-seq workflow failed for " + flowcell_barcode
             content = "The Slide-seq workflow for "+library+" "+reference2+" failed at the step of running cmatcher combine. Please check the log file for the issues. "
@@ -365,4 +365,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

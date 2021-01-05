@@ -34,7 +34,7 @@ def main():
     if len(sys.argv) != 7:
         print("Please provide six arguments: manifest file, library ID, lane ID, slice ID, sample barcode and locus function list!")
         sys.exit()
-    
+
     manifest_file = sys.argv[1]
     library = sys.argv[2]
     lane = sys.argv[3]
@@ -54,19 +54,19 @@ def main():
             dict = line.rstrip().split("=")
             options[dict[0]] = dict[1]
     fp.close()
-    
+
     flowcell_directory = options['flowcell_directory']
     scripts_folder = options['scripts_folder']
     output_folder = options['output_folder']
     metadata_file = options['metadata_file']
     option_file = options['option_file']
     flowcell_barcode = options['flowcell_barcode']
-    
+
     library_folder = options['library_folder'] if 'library_folder' in options else '{}/libraries'.format(output_folder)
     tmpdir = options['temp_folder'] if 'temp_folder' in options else '{}/tmp'.format(output_folder)
     illumina_platform = options['illumina_platform'] if 'illumina_platform' in options else 'NextSeq'
     email_address = options['email_address'] if 'email_address' in options else ''
-    
+
     # Read info from metadata file
     reference = ''
     experiment_date = ''
@@ -81,7 +81,7 @@ def main():
                 experiment_date = row[row0.index('experiment_date')]
                 break
     fin.close()
-    
+
     referencePure = reference[reference.rfind('/') + 1:]
     if (referencePure.endswith('.gz')):
         referencePure = referencePure[:referencePure.rfind('.')]
@@ -89,7 +89,7 @@ def main():
     reference2 = referencePure + '.' + locus_function_list
 
     log_file = '{}/logs/workflow.log'.format(output_folder)
-    
+
     barcode_matching_folder = '{}/{}_{}/{}/barcode_matching'.format(library_folder, experiment_date, library, reference2)
     prefix_libraries = '{}/{}.{}.{}.{}'.format(barcode_matching_folder, flowcell_barcode, lane, slice, library)
     if (barcode):
@@ -99,11 +99,11 @@ def main():
     tagged_sam = '{}/{}_{}_{}_{}_tagged.sam'.format(barcode_matching_folder, library, lane, slice, barcode)
     tagged_bam = '{}/{}_{}_{}_{}_tagged.bam'.format(barcode_matching_folder, library, lane, slice, barcode)
     combined_cmatcher_file = '{}/{}_barcode_matching.txt'.format(barcode_matching_folder, library)
-    
+
     if not os.path.isfile(mapped_bam):
         write_log(log_file, flowcell_barcode, 'TagMatchedBam error: '+mapped_bam+' does not exist!')
         raise Exception('TagMatchedBam error: '+mapped_bam+' does not exist!')
-    
+
     if not os.path.isfile(combined_cmatcher_file):
         write_log(log_file, flowcell_barcode, 'TagMatchedBam error: '+combined_cmatcher_file+' does not exist!')
         raise Exception('TagMatchedBam error: '+combined_cmatcher_file+' does not exist!')
@@ -114,16 +114,16 @@ def main():
 
     try:
         call(['mkdir', folder_running])
-        
+
         write_log(log_file, flowcell_barcode, "Tag matched bam for "+library+" "+reference2+" in lane "+lane+" slice "+slice)
-        
+
         now = datetime.now()
         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
         print(dt_string)
-    
+
         commandStr = 'samtools view -h -o {} {}'.format(mapped_sam, mapped_bam)
         os.system(commandStr)
-        
+
         if os.path.isfile(mapped_bam):
             call(['rm', mapped_bam])
 
@@ -152,38 +152,37 @@ def main():
                             fout.write('\t'.join(items1))
             fin.close()
         fout.close()
-        
+
         if os.path.isfile(mapped_sam):
             call(['rm', mapped_sam])
-        
+
         commandStr = 'samtools view -S -b {} > {}'.format(tagged_sam, tagged_bam)
         os.system(commandStr)
-        
+
         if os.path.isfile(tagged_sam):
             call(['rm', tagged_sam])
 
         now = datetime.now()
         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
         print(dt_string)
-        
+
         write_log(log_file, flowcell_barcode, "Tag matched bam for "+library+" "+reference2+" in lane "+lane+" slice "+slice+" is done. ")
-        
+
         call(['mv', folder_running, folder_finished])
     except:
         if os.path.isdir(folder_running):
             call(['mv', folder_running, folder_failed])
         else:
             call(['mkdir', folder_failed])
-            
+
         if len(email_address) > 1:
             subject = "Slide-seq workflow failed for " + flowcell_barcode
             content = "The Slide-seq workflow for "+library+" "+reference2+" in lane "+lane+" slice "+slice+" failed at the step of tagging matched bam. Please check the log file for the issues. "
             call_args = ['python', '{}/send_email.py'.format(scripts_folder), email_address, subject, content]
             call(call_args)
-        
+
         sys.exit()
 
 
 if __name__ == "__main__":
     main()
-
